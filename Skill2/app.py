@@ -1,72 +1,92 @@
-from flask import Flask, render_template, request
+from flask import Flask, request, jsonify
 import tensorflow as tf
 import numpy as np
+from PIL import Image
+import io
 
 app = Flask(__name__)
 
-class MatrixOperations:
-    @staticmethod
-    def add_matrices(matrix_a, matrix_b):
-        return tf.add(matrix_a, matrix_b).numpy()
+# Load pre-trained models (replace with actual paths)
+binary_model = tf.keras.models.load_model("models/binary_model.h5")
+multi_class_model = tf.keras.models.load_model("models/multi_class_model.h5")
+dropout_model = tf.keras.models.load_model("models/dropout_model.h5")
+batch_norm_model = tf.keras.models.load_model("models/batch_norm_model.h5")
+lstm_model = tf.keras.models.load_model("models/lstm_model.h5")
+rnn_model = tf.keras.models.load_model("models/rnn_model.h5")
 
-    @staticmethod
-    def multiply_matrices(matrix_a, matrix_b):
-        return tf.matmul(matrix_a, matrix_b).numpy()
+# Helper function to preprocess images
+def preprocess_image(image_bytes):
+    image = Image.open(io.BytesIO(image_bytes))
+    image = image.resize((224, 224))  # Adjust size according to your model's input size
+    image = np.array(image) / 255.0  # Normalize pixel values
+    image = np.expand_dims(image, axis=0)  # Add batch dimension
+    return image
 
-    @staticmethod
-    def elementwise_multiply(matrix_a, matrix_b):
-        return tf.multiply(matrix_a, matrix_b).numpy()
+# Endpoint for Binary Classification
+@app.route('/api/binary-classification', methods=['POST'])
+def binary_classification():
+    file = request.files.get('image')
+    if not file:
+        return jsonify({'error': 'No file uploaded'}), 400
+    image = preprocess_image(file.read())
+    prediction = binary_model.predict(image)
+    label = 'Class 0' if prediction[0][0] < 0.5 else 'Class 1'
+    return jsonify({'label': label, 'confidence': float(prediction[0][0])})
 
-    @staticmethod
-    def transpose_matrix(matrix):
-        return tf.transpose(matrix).numpy()
+# Endpoint for Multi-class Classification
+@app.route('/api/multi-class-classification', methods=['POST'])
+def multi_class_classification():
+    file = request.files.get('image')
+    if not file:
+        return jsonify({'error': 'No file uploaded'}), 400
+    image = preprocess_image(file.read())
+    prediction = multi_class_model.predict(image)
+    label = np.argmax(prediction[0])
+    return jsonify({'label': f'Class {label}', 'confidence': float(np.max(prediction[0]))})
 
-    @staticmethod
-    def inverse_matrix(matrix):
-        return tf.linalg.inv(matrix).numpy()
+# Endpoint for Dropout Model
+@app.route('/api/dropout-classification', methods=['POST'])
+def dropout_classification():
+    file = request.files.get('image')
+    if not file:
+        return jsonify({'error': 'No file uploaded'}), 400
+    image = preprocess_image(file.read())
+    prediction = dropout_model.predict(image)
+    label = np.argmax(prediction[0])
+    return jsonify({'label': f'Class {label}', 'confidence': float(np.max(prediction[0]))})
 
-def parse_matrix(matrix_str):
-    rows = matrix_str.strip().split('\n')
-    return np.array([list(map(float, row.split())) for row in rows])
+# Endpoint for Batch Normalization Model
+@app.route('/api/batch-norm-classification', methods=['POST'])
+def batch_norm_classification():
+    file = request.files.get('image')
+    if not file:
+        return jsonify({'error': 'No file uploaded'}), 400
+    image = preprocess_image(file.read())
+    prediction = batch_norm_model.predict(image)
+    label = np.argmax(prediction[0])
+    return jsonify({'label': f'Class {label}', 'confidence': float(np.max(prediction[0]))})
 
-@app.route('/home')
-def index2():
-    return render_template('index.html')
+# Endpoint for LSTM Model
+@app.route('/api/lstm-classification', methods=['POST'])
+def lstm_classification():
+    file = request.files.get('image')
+    if not file:
+        return jsonify({'error': 'No file uploaded'}), 400
+    image = preprocess_image(file.read())
+    prediction = lstm_model.predict(image)
+    label = np.argmax(prediction[0])
+    return jsonify({'label': f'Class {label}', 'confidence': float(np.max(prediction[0]))})
 
-@app.route('/')
-def index():
-    return "<p>Hello, World!</p>"
-
-@app.route('/matrix_operations', methods=['POST'])
-def matrix_operations():
-    matrix_a = parse_matrix(request.form['matrix_a'])
-    matrix_b = parse_matrix(request.form['matrix_b'])
-
-    result_addition = MatrixOperations.add_matrices(matrix_a, matrix_b)
-    result_multiplication = MatrixOperations.multiply_matrices(matrix_a, matrix_b)
-    result_elementwise_multiply = MatrixOperations.elementwise_multiply(matrix_a, matrix_b)
-    result_transpose_a = MatrixOperations.transpose_matrix(matrix_a)
-    result_transpose_b = MatrixOperations.transpose_matrix(matrix_b)
-
-    try:
-        result_inverse_a = MatrixOperations.inverse_matrix(matrix_a)
-        result_inverse_b = MatrixOperations.inverse_matrix(matrix_b)
-    except tf.errors.InvalidArgumentError:
-        result_inverse_a = "Matrix A is not invertible"
-        result_inverse_b = "Matrix B is not invertible"
-
-    return render_template('result.html',
-                           matrix_a=matrix_a,
-                           matrix_b=matrix_b,
-                           result_addition=result_addition,
-                           result_multiplication=result_multiplication,
-                           result_elementwise_multiply=result_elementwise_multiply,
-                           result_transpose_a=result_transpose_a,
-                           result_transpose_b=result_transpose_b,
-                           result_inverse_a=result_inverse_a,
-                           result_inverse_b=result_inverse_b)
-
-
+# Endpoint for RNN Model
+@app.route('/api/rnn-classification', methods=['POST'])
+def rnn_classification():
+    file = request.files.get('image')
+    if not file:
+        return jsonify({'error': 'No file uploaded'}), 400
+    image = preprocess_image(file.read())
+    prediction = rnn_model.predict(image)
+    label = np.argmax(prediction[0])
+    return jsonify({'label': f'Class {label}', 'confidence': float(np.max(prediction[0]))})
 
 if __name__ == '__main__':
     app.run(debug=True)
